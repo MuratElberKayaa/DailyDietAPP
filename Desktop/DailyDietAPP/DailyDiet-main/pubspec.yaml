@@ -1,0 +1,23 @@
+name: dailydiet
+description: A new Flutter project.
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=2.18.0 <3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.0          # API çağrıları için
+  shared_preferences: ^2.2.2  # JWT token saklama için
+  provider: ^6.1.2      # Durum yönetimi (opsiyonel, ileride kullanabilirsin)
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
