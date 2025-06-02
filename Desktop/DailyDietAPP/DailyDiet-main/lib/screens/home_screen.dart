@@ -20,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final int dailyWaterGoal = 8;
   Map<String, dynamic>? cachedDietPlan;
   String? lastUpdateDate;
+  int _selectedIndex = 0;
   final List<String> motivationalQuotes = [
     "Sağlıklı bir vücut, sağlıklı bir zihnin anahtarıdır.",
     "Küçük adımlar, büyük değişimlere yol açar.",
@@ -429,12 +430,23 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.notifications_outlined),
-                        onPressed: () {
-                          // Bildirimler sayfasına git
-                        },
-                        color: Colors.green.shade700,
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.notifications_outlined),
+                            onPressed: () {
+                              // Bildirimler sayfasına git
+                            },
+                            color: Colors.green.shade700,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.person_outline),
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/profile');
+                            },
+                            color: Colors.green.shade700,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -458,6 +470,34 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.green,
         icon: const Icon(Icons.chat),
         label: const Text('Diyet Asistanı'),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          switch (index) {
+            case 0:
+              // Already on home
+              break;
+            case 1:
+              Navigator.pushNamed(context, '/profile');
+              break;
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Ana Sayfa',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profil',
+          ),
+        ],
+        selectedItemColor: Colors.green,
+        unselectedItemColor: Colors.grey,
       ),
     );
   }
