@@ -17,6 +17,7 @@ namespace DailyDietAPI.Persistence
         public DbSet<UserMeals> UserMeals { get; set; } = null!;
         public DbSet<UserProfile> UserProfiles { get; set; } = null!;
         public DbSet<Meal> Meals { get; set; } = null!;
+        public DbSet<DietPlan> DietPlans { get; set; } = null!;
 
         public MealsDbContext(DbContextOptions<MealsDbContext> options, IConfiguration? configuration = null)
             : base(options)
@@ -68,6 +69,7 @@ namespace DailyDietAPI.Persistence
             modelBuilder.ConfigureUser();
             modelBuilder.ConfigureUserProfile();
             modelBuilder.ConfigureUserMeals();
+            modelBuilder.ConfigureDietPlan();
 
             // Register all entity configurations
             modelBuilder.RegisterMappingsInsideNamespace<IMappingContainer>();

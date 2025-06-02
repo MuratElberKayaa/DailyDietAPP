@@ -85,22 +85,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildQuickStatsCard(double screenWidth) {
-    return Card(
-      elevation: 4,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.green.shade50,
+            Colors.white,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Hızlı İstatistikler',
-              style: TextStyle(
-                fontSize: screenWidth > 600 ? 20 : 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.green.shade900,
-              ),
+            Row(
+              children: [
+                Icon(Icons.insights, color: Colors.green.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  'Günlük İstatistikler',
+                  style: TextStyle(
+                    fontSize: screenWidth > 600 ? 20 : 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -144,74 +168,116 @@ class _HomeScreenState extends State<HomeScreen> {
     required String unit,
     required Color color,
   }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 28),
-        SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          '$value / $target',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
+          const SizedBox(height: 4),
+          Text(
+            '$value / $target',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
-        ),
-        Text(
-          unit,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
+          Text(
+            unit,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildWaterTrackerCard(double screenWidth) {
-    return Card(
-      elevation: 4,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.blue.shade50,
+            Colors.white,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Su Takibi',
-                  style: TextStyle(
-                    fontSize: screenWidth > 600 ? 20 : 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade900,
-                  ),
+                Row(
+                  children: [
+                    Icon(Icons.water_drop, color: Colors.blue.shade700),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Su Takibi',
+                      style: TextStyle(
+                        fontSize: screenWidth > 600 ? 20 : 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  '$waterGlasses / $dailyWaterGoal bardak',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.blue.shade700,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '$waterGlasses / $dailyWaterGoal bardak',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: waterGlasses / dailyWaterGoal,
-              backgroundColor: Colors.blue.shade100,
-              color: Colors.blue,
-              minHeight: 10,
-              borderRadius: BorderRadius.circular(5),
+            const SizedBox(height: 20),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: waterGlasses / dailyWaterGoal,
+                backgroundColor: Colors.blue.shade100,
+                color: Colors.blue,
+                minHeight: 12,
+              ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -223,14 +289,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       });
                     }
                   },
-                  icon: Icon(Icons.remove),
-                  label: Text('Çıkar'),
+                  icon: const Icon(Icons.remove),
+                  label: const Text('Çıkar'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade100,
-                    foregroundColor: Colors.blue.shade900,
+                    backgroundColor: Colors.blue.shade50,
+                    foregroundColor: Colors.blue.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 ElevatedButton.icon(
                   onPressed: () {
                     if (waterGlasses < dailyWaterGoal) {
@@ -239,11 +309,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       });
                     }
                   },
-                  icon: Icon(Icons.add),
-                  label: Text('Ekle'),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Ekle'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ],
@@ -254,127 +328,136 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final textScaleFactor = MediaQuery.of(context).textScaleFactor;
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'DAILYDIET',
-          style: TextStyle(fontSize: 20 * textScaleFactor),
+  Widget _buildMotivationCard(double screenWidth) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.purple.shade50,
+            Colors.white,
+          ],
         ),
-        backgroundColor: Colors.green,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: screenWidth > 600 ? screenWidth * 0.1 : 16.0,
-              vertical: 16.0
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                // Hızlı İstatistikler
-                _buildQuickStatsCard(screenWidth),
-                
-                SizedBox(height: 20),
-
-                // Su Takibi
-                _buildWaterTrackerCard(screenWidth),
-
-                SizedBox(height: 20),
-
-                // Chatbot İpucu
-                Card(
-                  elevation: 4,
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.lightbulb_outline, color: Colors.amber),
-                            SizedBox(width: 8),
-                            Text(
-                              'Günün Motivasyonu',
-                              style: TextStyle(
-                                fontSize: screenWidth > 600 ? 18 : 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.amber.shade900,
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          chatbotTip,
-                          style: TextStyle(
-                            fontSize: screenWidth > 600 ? 16 : 14,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                SizedBox(height: 20),
-
-                // Diyet Planı Butonu
-                Center(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: screenWidth > 600 ? 24 : 16,
-                        vertical: screenWidth > 600 ? 12 : 8,
-                      ),
-                    ),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => DietPlanScreen())
-                    ),
-                    icon: Icon(Icons.restaurant_menu),
-                    label: Text(
-                      'Diyet Planını Görüntüle',
-                      style: TextStyle(
-                        fontSize: screenWidth > 600 ? 18 : 16
-                      ),
-                    ),
-                  ),
-                ),
-
-                SizedBox(height: 20),
-
-                // Chatbot Butonu
-                Center(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: screenWidth > 600 ? 24 : 16,
-                        vertical: screenWidth > 600 ? 12 : 8,
-                      ),
-                    ),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => ChatbotScreen())
-                    ),
-                    icon: Icon(Icons.chat),
-                    label: Text(
-                      'Chatbot ile Konuş',
-                      style: TextStyle(
-                        fontSize: screenWidth > 600 ? 18 : 16
-                      ),
-                    ),
+                Icon(Icons.auto_awesome, color: Colors.purple.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  'Günün Motivasyonu',
+                  style: TextStyle(
+                    fontSize: screenWidth > 600 ? 20 : 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple.shade700,
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            Text(
+              chatbotTip,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[800],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.green.shade50,
+              Colors.white,
+            ],
           ),
         ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Merhaba!',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                          Text(
+                            'Sağlıklı bir gün geçir!',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.notifications_outlined),
+                        onPressed: () {
+                          // Bildirimler sayfasına git
+                        },
+                        color: Colors.green.shade700,
+                      ),
+                    ],
+                  ),
+                ),
+                _buildQuickStatsCard(screenWidth),
+                _buildWaterTrackerCard(screenWidth),
+                _buildMotivationCard(screenWidth),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ChatbotScreen()),
+          );
+        },
+        backgroundColor: Colors.green,
+        icon: const Icon(Icons.chat),
+        label: const Text('Diyet Asistanı'),
       ),
     );
   }

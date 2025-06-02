@@ -52,7 +52,7 @@ namespace DailyDietAPI.Services
                     "application/json"
                 );
 
-                var response = await _httpClient.PostAsync($"{_apiUrl}/chat/completions", content);
+                var response = await _httpClient.PostAsync($"{_apiUrl}/chat-messages", content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 _logger.LogInformation($"Dify API yanıtı: {responseContent}");

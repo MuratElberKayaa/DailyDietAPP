@@ -68,6 +68,15 @@ namespace DailyDietAPI.Features
             public DateTime Expiration { get; set; }
             public string Email { get; set; }
             public string[] Roles { get; set; }
+            public long UserId { get; set; }
+        }
+
+        public class UpdateProfileRequest
+        {
+            public long UserId { get; set; }
+            public string CurrentPassword { get; set; }
+            public string NewEmail { get; set; }
+            public string? NewPassword { get; set; }
         }
 
         /// <summary>
@@ -120,7 +129,8 @@ namespace DailyDietAPI.Features
                     Token = token,
                     Expiration = DateTime.UtcNow.AddMinutes(int.Parse(_configuration["Jwt:ExpiryInMinutes"])),
                     Email = user.Email,
-                    Roles = userRoles.ToArray()
+                    Roles = userRoles.ToArray(),
+                    UserId = user.Id
                 });
             }
             catch (Exception ex)
@@ -190,7 +200,8 @@ namespace DailyDietAPI.Features
                     Token = token,
                     Expiration = DateTime.UtcNow.AddMinutes(Convert.ToDouble(_configuration["Jwt:ExpiryInMinutes"])),
                     Email = user.Email,
-                    Roles = new[] { "User" }
+                    Roles = new[] { "User" },
+                    UserId = user.Id
                 });
             }
             catch (Exception ex)
@@ -198,6 +209,48 @@ namespace DailyDietAPI.Features
                 _logger.LogError(ex, "Register işlemi sırasında beklenmeyen hata: {Message}", ex.Message);
                 throw; // Let the middleware handle the error
             }
+        }
+
+        [Authorize]
+        [HttpPost("update-profile")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.CurrentPassword))
+                return BadRequest(new { message = "Eksik veya hatalı istek." });
+
+            var user = await _userManager.FindByIdAsync(request.UserId.ToString());
+            if (user == null)
+                return NotFound(new { message = "Kullanıcı bulunamadı." });
+
+            // Mevcut şifreyi doğrula
+            var passwordValid = await _userManager.CheckPasswordAsync(user, request.CurrentPassword);
+            if (!passwordValid)
+                return BadRequest(new { message = "Mevcut şifre yanlış." });
+
+            // E-posta güncelle
+            if (!string.IsNullOrEmpty(request.NewEmail) && request.NewEmail != user.Email)
+            {
+                var setEmailResult = await _userManager.SetEmailAsync(user, request.NewEmail);
+                var setUserNameResult = await _userManager.SetUserNameAsync(user, request.NewEmail);
+                if (!setEmailResult.Succeeded || !setUserNameResult.Succeeded)
+                {
+                    var errors = setEmailResult.Errors.Concat(setUserNameResult.Errors).Select(e => e.Description);
+                    return BadRequest(new { message = "E-posta güncellenemedi.", errors });
+                }
+            }
+
+            // Şifre güncelle (opsiyonel)
+            if (!string.IsNullOrEmpty(request.NewPassword))
+            {
+                var changePwdResult = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+                if (!changePwdResult.Succeeded)
+                {
+                    var errors = changePwdResult.Errors.Select(e => e.Description);
+                    return BadRequest(new { message = "Şifre güncellenemedi.", errors });
+                }
+            }
+
+            return Ok(new { message = "Profil başarıyla güncellendi." });
         }
 
         private string GenerateJwtToken(User user)

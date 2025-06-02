@@ -16,12 +16,6 @@ namespace DailyDietAPI.Model
         [EmailAddress]
         public override string Email { get; set; }
 
-        public override string UserName
-        {
-            get => Email;
-            set => Email = value;
-        }
-
         public User()
         {
             // NOTE:

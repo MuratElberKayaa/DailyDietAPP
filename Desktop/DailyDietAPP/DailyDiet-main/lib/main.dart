@@ -5,7 +5,11 @@ import 'screens/home_screen.dart';
 import 'screens/chatbot_screen.dart';
 import 'screens/diet_plan_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/register_screen.dart';
 import 'services/api_service.dart';
+
+// Global RouteObserver
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 void main() {
   runApp(const MyApp());
@@ -29,7 +33,9 @@ class MyApp extends StatelessWidget {
         '/chatbot': (context) => const ChatbotScreen(),
         '/diet-plan': (context) => const DietPlanScreen(),
         '/profile': (context) => const ProfileScreen(),
+        '/register': (context) => RegisterScreen(),
       },
+      navigatorObservers: [routeObserver],
     );
   }
 }

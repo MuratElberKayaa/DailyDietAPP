@@ -85,5 +85,17 @@ namespace DailyDietAPI.Persistence
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }
+
+        public static void ConfigureDietPlan(this ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<DietPlan>(entity =>
+            {
+                entity.ToTable("DietPlans");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.UserId).IsRequired();
+                entity.Property(e => e.Plan).IsRequired();
+                entity.Property(e => e.CreatedAt).IsRequired();
+            });
+        }
     }
 }

@@ -1,72 +1,49 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
-
+class RegisterScreen extends StatefulWidget {
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  _RegisterScreenState createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _passwordRepeatController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  late ApiService _apiService;
+  bool _obscurePasswordRepeat = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _clearSession();
-    _initApiService();
-  }
-
-  Future<void> _clearSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    await prefs.remove('userId');
-    await prefs.remove('username');
-    // Gerekirse diğer oturum bilgilerini de sil
-  }
-
-  Future<void> _initApiService() async {
-    final prefs = await SharedPreferences.getInstance();
-    _apiService = ApiService(prefs);
-  }
-
-  Future<void> _login() async {
+  Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
+      if (_passwordController.text != _passwordRepeatController.text) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Şifreler eşleşmiyor!')),
+        );
+        return;
+      }
+      setState(() => _isLoading = true);
       try {
-        final response = await _apiService.login(
-          _emailController.text.trim(),
+        final apiService = await ApiService.getInstance();
+        await apiService.register(
+          _emailController.text,
           _passwordController.text,
         );
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Giriş başarılı!')),
+            const SnackBar(content: Text('Kayıt başarılı!')),
           );
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/login');
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Giriş hatası: ${e.toString()}')),
+            SnackBar(content: Text('Kayıt hatası: ${e.toString()}')),
           );
         }
       } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -94,52 +71,27 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 60),
-                    // Logo ve Başlık
-                    Center(
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 5),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.restaurant_menu,
-                              size: 50,
-                              color: Colors.green,
-                            ),
+                    const SizedBox(height: 40),
+                    // Geri Butonu ve Başlık
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const SizedBox(width: 16),
+                        const Text(
+                          'Yeni Hesap Oluştur',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'Daily Diet',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Sağlıklı Yaşam İçin',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 48),
-                    // Giriş Formu
+                    const SizedBox(height: 40),
+                    // Kayıt Formu
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
@@ -218,8 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             obscureText: _obscurePassword,
-                            textInputAction: TextInputAction.done,
-                            onFieldSubmitted: (_) => _login(),
+                            textInputAction: TextInputAction.next,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Lütfen şifrenizi girin';
@@ -230,11 +181,54 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordRepeatController,
+                            decoration: InputDecoration(
+                              labelText: 'Şifre (Tekrar)',
+                              prefixIcon: const Icon(Icons.lock_outline, color: Colors.green),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePasswordRepeat ? Icons.visibility : Icons.visibility_off,
+                                  color: Colors.grey,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePasswordRepeat = !_obscurePasswordRepeat;
+                                  });
+                                },
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Colors.grey),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: Colors.grey.shade300),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Colors.green),
+                              ),
+                            ),
+                            obscureText: _obscurePasswordRepeat,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _register(),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Lütfen şifrenizi tekrar girin';
+                              }
+                              if (value != _passwordController.text) {
+                                return 'Şifreler eşleşmiyor';
+                              }
+                              return null;
+                            },
+                          ),
                           const SizedBox(height: 24),
                           SizedBox(
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: _isLoading ? null : _login,
+                              onPressed: _isLoading ? null : _register,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 foregroundColor: Colors.white,
@@ -253,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     )
                                   : const Text(
-                                      'Giriş Yap',
+                                      'Kayıt Ol',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
@@ -265,21 +259,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    // Kayıt Ol Butonu
+                    // Giriş Yap Butonu
                     TextButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, '/register');
+                        Navigator.pushReplacementNamed(context, '/login');
                       },
                       child: RichText(
                         text: const TextSpan(
-                          text: 'Hesabınız yok mu? ',
-                          style: TextStyle(color: Colors.grey),
+                          text: 'Zaten hesabınız var mı? ',
+                          style: TextStyle(color: Colors.white),
                           children: [
                             TextSpan(
-                              text: 'Kayıt Olun',
+                              text: 'Giriş Yapın',
                               style: TextStyle(
-                                color: Colors.green,
+                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
                               ),
                             ),
                           ],
@@ -300,6 +295,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordRepeatController.dispose();
     super.dispose();
   }
-}
+} 

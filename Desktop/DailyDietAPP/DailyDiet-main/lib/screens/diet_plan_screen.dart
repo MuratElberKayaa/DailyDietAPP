@@ -3,6 +3,10 @@ import 'package:dailydiet/screens/chatbot_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:dailydiet/services/api_service.dart';
+import 'package:flutter/widgets.dart';
+import '../../main.dart'; // routeObserver'ın tanımlı olduğu dosya yolunu kendi projenize göre ayarlayın
+import 'package:dailydiet/models/diet_plan.dart';
 
 class DietPlanScreen extends StatefulWidget {
   const DietPlanScreen({Key? key}) : super(key: key);
@@ -11,162 +15,127 @@ class DietPlanScreen extends StatefulWidget {
   _DietPlanScreenState createState() => _DietPlanScreenState();
 }
 
-class _DietPlanScreenState extends State<DietPlanScreen> {
-  Map<String, dynamic>? dietPlans;
+class _DietPlanScreenState extends State<DietPlanScreen> with RouteAware {
+  DietPlan? dietPlan;
   bool isLoading = true;
   String? errorMessage;
   Map<int, Set<int>> checkedFoods = {};
+  late ApiService _apiService;
 
   @override
   void initState() {
     super.initState();
+    _ensureUserId().then((_) => _initApiService());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)! as PageRoute);
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Bu ekrana geri dönüldüğünde planı güncelle
     _loadDietPlan();
+  }
+
+  Future<void> _ensureUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? userId = prefs.getString('userId');
+    if (userId == null || userId.isEmpty) {
+      // Geçici olarak elle userId ata (ör: 1)
+      await prefs.setString('userId', '1');
+      userId = '1';
+    }
+    print('KULLANILAN USER ID: ' + userId);
+  }
+
+  Future<void> _initApiService() async {
+    _apiService = await ApiService.getInstance();
+    await _loadDietPlan();
+  }
+
+  // Backend'den gelen planı modele uygun formata çevir
+  Map<String, dynamic> convertBackendPlanToModel(Map<String, dynamic> backendPlan) {
+    List<Map<String, dynamic>> ogunler = [];
+    if (backendPlan['kahvalti'] != null) {
+      ogunler.add({'ogunAdi': 'Kahvaltı', 'yemekler': backendPlan['kahvalti']});
+    }
+    if (backendPlan['ogle'] != null) {
+      ogunler.add({'ogunAdi': 'Öğle', 'yemekler': backendPlan['ogle']});
+    }
+    if (backendPlan['aksam'] != null) {
+      ogunler.add({'ogunAdi': 'Akşam', 'yemekler': backendPlan['aksam']});
+    }
+    if (backendPlan['ara_ogun'] != null) {
+      ogunler.add({'ogunAdi': 'Ara Öğün', 'yemekler': backendPlan['ara_ogun']});
+    }
+    if (backendPlan['su'] != null) {
+      ogunler.add({'ogunAdi': 'Su', 'yemekler': backendPlan['su']});
+    }
+    return {'ogunler': ogunler};
   }
 
   Future<void> _loadDietPlan() async {
     setState(() {
       isLoading = true;
     });
-
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final lastUpdateDate = prefs.getString('dietPlanLastUpdate');
-    
-    // Eğer bugünün verisi varsa, cache'den oku
-    if (lastUpdateDate == today) {
-      final cachedData = prefs.getString('dietPlanData');
-      if (cachedData != null) {
-        setState(() {
-          dietPlans = json.decode(cachedData);
-          isLoading = false;
-        });
-        return;
-      }
-    }
-
-    // Cache'de veri yoksa veya güncel değilse, API'den çek
-    await fetchDietPlan();
-  }
-
-  Future<void> fetchDietPlan() async {
-    const apiKey = "app-sSUEH7mJmlsecDJEdbPcbckt";
-    const workflowId = "62ce4a0d-ab01-4df0-8d9f-d79df7521a4b";
-    const baseUrl = "https://api.dify.ai/v1";
-
-    final headers = {
-      "Authorization": "Bearer $apiKey",
-      "Content-Type": "application/json",
-    };
-
-    final requestBody = {
-      "workflow_id": workflowId,
-      "inputs": {
-        "yas": "25",
-        "cinsiyet": "erkek",
-        "boy": "180",
-        "kilogram": "85",
-        "hedef": "kilo vermek",
-        "hareket_seviyesi": "orta"
-      },
-      "response_mode": "streaming",
-      "user": "abc-123"
-    };
-
     try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/workflows/run"),
-        headers: headers,
-        body: jsonEncode(requestBody),
-      ).timeout(Duration(seconds: 60));
-
-      if (response.statusCode == 200) {
-        final stream = response.body.split('\n');
-        Map<String, dynamic>? dietJson;
-
-        for (var line in stream) {
-          if (line.startsWith("data:")) {
-            try {
-              final data = jsonDecode(line.replaceFirst("data:", "").trim());
-              if (data["event"] == "workflow_finished") {
-                dietJson = jsonDecode(data["data"]["outputs"]["diet_json"]);
-                break;
-              }
-            } catch (e) {
-              print("JSON ayrıştırma hatası: $e");
-            }
+      final prefs = await SharedPreferences.getInstance();
+      final userIdString = prefs.getString('userId');
+      final userId = int.tryParse(userIdString ?? '') ?? 0;
+      print('Diyet planı yükleniyor...');
+      final rawData = await _apiService.getDietPlanFromServer(userId);
+      print('Backend\'den gelen ham veri: $rawData');
+      if (rawData != null && rawData.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(rawData);
+          print('Backend\'den decode edilen veri: $decoded');
+          Map<String, dynamic> planJson;
+          if (decoded is Map && decoded.containsKey('plan')) {
+            planJson = jsonDecode(decoded['plan']);
+          } else {
+            planJson = decoded;
           }
-        }
-
-        if (dietJson != null) {
-          // Veriyi SharedPreferences'a kaydet
-          final prefs = await SharedPreferences.getInstance();
-          final today = DateTime.now().toIso8601String().split('T')[0];
-          await prefs.setString('dietPlanData', json.encode(dietJson));
-          await prefs.setString('dietPlanLastUpdate', today);
-
+          final modelPlan = planJson['ogunler'] != null
+              ? planJson
+              : convertBackendPlanToModel(planJson['diyet_listesi'] ?? planJson);
+          final dietPlan = DietPlan.fromJson(modelPlan);
           setState(() {
-            dietPlans = dietJson;
+            this.dietPlan = dietPlan;
             isLoading = false;
           });
-        } else {
+        } catch (e) {
+          print('Model parse hatası: $e');
           setState(() {
-            errorMessage = "Diyet planı alınamadı";
+            dietPlan = null;
             isLoading = false;
+            errorMessage = 'Diyet planı verisi işlenemedi. Lütfen tekrar oluşturun.';
           });
         }
       } else {
+        print('Plan bulunamadı');
         setState(() {
-          errorMessage = "Hata oluştu: ${response.statusCode} ${response.body}";
+          dietPlan = null;
           isLoading = false;
+          errorMessage = 'Hata: Henüz bir diyet planı oluşturmadınız. Chatbot ile bir plan oluşturun.';
         });
       }
     } catch (e) {
+      print('Diyet planı yükleme hatası: $e');
       setState(() {
-        errorMessage = "Bağlantı hatası: $e";
+        dietPlan = null;
         isLoading = false;
+        errorMessage = 'Diyet planı yüklenirken hata oluştu.';
       });
     }
-  }
-
-  Widget _buildResponsiveCard({
-    required String title,
-    required Widget child,
-    double? height,
-  }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Card(
-          child: Container(
-            width: constraints.maxWidth,
-            padding: EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                      fontSize: constraints.maxWidth > 600 ? 18 : 16,
-                      fontWeight: FontWeight.bold
-                  ),
-                ),
-                SizedBox(height: 10),
-                child,
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label),
-        Text(value),
-      ],
-    );
   }
 
   Widget _buildNutrientChip({
@@ -176,21 +145,23 @@ class _DietPlanScreenState extends State<DietPlanScreen> {
     required Color color,
   }) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: Colors.black54),
-          SizedBox(width: 4),
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
           Text(
             '$value $unit',
             style: TextStyle(
-              fontSize: 11,
-              color: Colors.black87,
+              fontSize: 12,
+              color: color,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -198,33 +169,57 @@ class _DietPlanScreenState extends State<DietPlanScreen> {
     );
   }
 
-  Widget _buildMealSection(dynamic meal, double screenWidth) {
-    int mealIndex = dietPlans!["ogunler"].indexOf(meal);
-    return Card(
-      elevation: 4,
-      margin: EdgeInsets.symmetric(vertical: 8.0),
+  Widget _buildMealSection(Meal meal, double screenWidth) {
+    int mealIndex = dietPlan!.meals.indexOf(meal);
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(20.0),
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(4),
-                topRight: Radius.circular(4),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.green.shade50,
+                  Colors.white,
+                ],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
               ),
             ),
             child: Row(
               children: [
-                Icon(Icons.restaurant_menu, color: Colors.green),
-                SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.restaurant_menu, color: Colors.green.shade700),
+                ),
+                const SizedBox(width: 12),
                 Text(
-                  meal['ogunAdi'],
+                  meal.name,
                   style: TextStyle(
                     fontSize: screenWidth > 600 ? 20 : 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green.shade900,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade700,
                   ),
                 ),
               ],
@@ -232,78 +227,85 @@ class _DietPlanScreenState extends State<DietPlanScreen> {
           ),
           ListView.builder(
             shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            itemCount: meal['yemekler'].length,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: meal.foods.length,
             itemBuilder: (context, foodIndex) {
-              final food = meal['yemekler'][foodIndex];
+              final food = meal.foods[foodIndex];
               final isChecked = checkedFoods[mealIndex]?.contains(foodIndex) ?? false;
               
               return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Colors.grey.shade200,
-                      width: 1,
-                    ),
+                  color: isChecked ? Colors.green.shade50 : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isChecked ? Colors.green.shade200 : Colors.grey.shade200,
                   ),
                 ),
                 child: ListTile(
-                  leading: Transform.scale(
-                    scale: 1.2,
-                    child: Checkbox(
-                      value: isChecked,
-                      onChanged: (val) {
-                        setState(() {
-                          checkedFoods.putIfAbsent(mealIndex, () => <int>{});
-                          if (val == true) {
-                            checkedFoods[mealIndex]!.add(foodIndex);
-                          } else {
-                            checkedFoods[mealIndex]!.remove(foodIndex);
-                          }
-                        });
-                      },
-                      activeColor: Colors.green,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Checkbox(
+                    value: isChecked,
+                    onChanged: (bool? value) {
+                      setState(() {
+                        checkedFoods[mealIndex] ??= {};
+                        if (value == true) {
+                          checkedFoods[mealIndex]!.add(foodIndex);
+                        } else {
+                          checkedFoods[mealIndex]!.remove(foodIndex);
+                        }
+                      });
+                    },
+                    activeColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                   title: Text(
-                    food['yemek'],
+                    food.name,
                     style: TextStyle(
-                      fontSize: screenWidth > 600 ? 16 : 14,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
+                      color: isChecked ? Colors.green.shade700 : Colors.grey.shade800,
                       decoration: isChecked ? TextDecoration.lineThrough : null,
-                      color: isChecked ? Colors.grey : Colors.black87,
                     ),
                   ),
-                  subtitle: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildNutrientChip(
-                        icon: Icons.local_fire_department,
-                        value: '${food['kalori']}',
-                        unit: 'kcal',
-                        color: Colors.orange.shade100,
-                      ),
-                      _buildNutrientChip(
-                        icon: Icons.grain,
-                        value: '${food['karbonhidrat']}',
-                        unit: 'g karb',
-                        color: Colors.brown.shade100,
-                      ),
-                      _buildNutrientChip(
-                        icon: Icons.fitness_center,
-                        value: '${food['protein']}',
-                        unit: 'g pro',
-                        color: Colors.red.shade100,
-                      ),
-                      _buildNutrientChip(
-                        icon: Icons.opacity,
-                        value: '${food['yag']}',
-                        unit: 'g yağ',
-                        color: Colors.yellow.shade100,
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (food.calories != null)
+                            _buildNutrientChip(
+                              icon: Icons.local_fire_department,
+                              value: food.calories.toString(),
+                              unit: 'kcal',
+                              color: Colors.orange,
+                            ),
+                          if (food.protein != null)
+                            _buildNutrientChip(
+                              icon: Icons.fitness_center,
+                              value: food.protein.toString(),
+                              unit: 'g protein',
+                              color: Colors.blue,
+                            ),
+                          if (food.carbs != null)
+                            _buildNutrientChip(
+                              icon: Icons.grain,
+                              value: food.carbs.toString(),
+                              unit: 'g karbonhidrat',
+                              color: Colors.purple,
+                            ),
+                          if (food.fat != null)
+                            _buildNutrientChip(
+                              icon: Icons.water_drop,
+                              value: food.fat.toString(),
+                              unit: 'g yağ',
+                              color: Colors.red,
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -322,11 +324,10 @@ class _DietPlanScreenState extends State<DietPlanScreen> {
 
     // Calculate total target calories from diet plan
     int totalTargetCalories = 0;
-    if (dietPlans != null && dietPlans!['ogunler'] != null) {
-      for (var meal in dietPlans!['ogunler']) {
-        for (var food in meal['yemekler']) {
-          String calStr = food['kalori'].toString().replaceAll(RegExp(r'[^0-9]'), '');
-          totalTargetCalories += int.tryParse(calStr) ?? 0;
+    if (dietPlan != null) {
+      for (var meal in dietPlan!.meals) {
+        for (var food in meal.foods) {
+          totalTargetCalories += food.calories;
         }
       }
     }
@@ -334,77 +335,123 @@ class _DietPlanScreenState extends State<DietPlanScreen> {
     // Calculate consumed calories based on checked checkboxes
     int consumedCalories = 0;
     checkedFoods.forEach((mealIndex, foodIndices) {
-      if (dietPlans != null && dietPlans!['ogunler'] != null && mealIndex < dietPlans!['ogunler'].length) {
-        var meal = dietPlans!['ogunler'][mealIndex];
+      if (dietPlan != null && mealIndex < dietPlan!.meals.length) {
+        var meal = dietPlan!.meals[mealIndex];
         for (var foodIndex in foodIndices) {
-          if (foodIndex < meal['yemekler'].length) {
-            String calStr = meal['yemekler'][foodIndex]['kalori'].toString().replaceAll(RegExp(r'[^0-9]'), '');
-            consumedCalories += int.tryParse(calStr) ?? 0;
+          if (foodIndex < meal.foods.length) {
+            consumedCalories += meal.foods[foodIndex].calories;
           }
         }
       }
     });
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Diyet Planı'),
-        backgroundColor: Colors.green,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: screenWidth > 600 ? screenWidth * 0.1 : 16.0,
-            vertical: 16.0
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.green.shade50,
+              Colors.white,
+            ],
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Günlük Özet
-                _buildResponsiveCard(
-                  title: 'Günlük Özet',
-                  child: Column(
-                    children: [
-                      _buildInfoRow('Hedef Kalori:', '${totalTargetCalories.toString()} kcal'),
-                      SizedBox(height: 10),
-                      _buildInfoRow('Tüketilen:', '${consumedCalories.toString()} kcal'),
-                      SizedBox(height: 10),
-                      LinearProgressIndicator(
-                        value: totalTargetCalories > 0 ? consumedCalories / totalTargetCalories : 0,
-                        backgroundColor: Colors.grey[200],
-                        color: Colors.green,
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Üst Bar
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => Navigator.pop(context),
+                      color: Colors.green.shade700,
+                    ),
+                    Text(
+                      'Diyet Planı',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade700,
                       ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: _loadDietPlan,
+                      color: Colors.green.shade700,
+                    ),
+                  ],
                 ),
-
-                SizedBox(height: 20),
-
-                // Diyet Planı
-                Text(
-                  'Bugünün Diyet Planı',
-                  style: TextStyle(
-                    fontSize: screenWidth > 600 ? 22 : 18,
-                    fontWeight: FontWeight.bold
-                  ),
-                ),
-                SizedBox(height: 10),
-
-                if (isLoading)
-                  Center(child: CircularProgressIndicator())
-                else if (errorMessage != null)
-                  Text(
-                    'Hata: $errorMessage',
-                    style: TextStyle(color: Colors.red)
-                  )
-                else if (dietPlans != null && dietPlans!['ogunler'] != null)
-                  ...dietPlans!['ogunler'].map<Widget>((meal) {
-                    return _buildMealSection(meal, screenWidth);
-                  }).toList()
-                else
-                  Text('Diyet planı bulunamadı.'),
-              ],
-            ),
+              ),
+              // Ana İçerik
+              Expanded(
+                child: isLoading
+                    ? Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade700),
+                        ),
+                      )
+                    : errorMessage != null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    size: 64,
+                                    color: Colors.red.shade300,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    errorMessage!,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const ChatbotScreen(),
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(Icons.chat),
+                                    label: const Text('Chatbot ile Plan Oluştur'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              children: dietPlan!.meals.map((meal) => _buildMealSection(meal, screenWidth)).toList(),
+                            ),
+                          ),
+              ),
+            ],
           ),
         ),
       ),

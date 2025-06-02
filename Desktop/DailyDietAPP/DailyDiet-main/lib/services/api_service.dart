@@ -5,10 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 
 class ApiService {
+  static ApiService? _instance;
+  static Future<ApiService> getInstance() async {
+    if (_instance != null) return _instance!;
+    final prefs = await SharedPreferences.getInstance();
+    _instance = ApiService(prefs);
+    return _instance!;
+  }
+
   final SharedPreferences _prefs;
   final String _baseUrl = 'http://127.0.0.1:5001/api';
   final String _difyUrl = 'https://api.dify.ai/v1';
-  final String _difyApiKey = 'app-c0sDecUl7VaGJxQP2ifV5s6S';
+  final String _difyApiKey = 'app-dNj8ge94nfEGHGivm2e2BZMP';
   String? _token;
 
   ApiService(this._prefs) {
@@ -30,9 +38,22 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         await saveToken(data['token']);
+        await _prefs.setString('username', email);
+        // userId kaydet
+        if (data['userId'] != null) {
+          await _prefs.setString('userId', data['userId'].toString());
+        } else {
+          // Eğer backend dönmüyorsa, mevcut userId fonksiyonunu kullan
+          await getUserId();
+        }
+        // GİRİŞ BAŞARILI: Eski diyet planı verilerini temizle
+        await _prefs.remove('dietPlan');
+        await _prefs.remove('dietPlanData_' + email);
+        await _prefs.remove('dietPlanLastUpdate_' + email);
+        await _prefs.remove('lastUpdateDate');
         return data;
       } else {
-        throw Exception('Login failed: ${response.body}');
+        throw Exception('Login failed: \\n${response.body}');
       }
     } catch (e) {
       throw Exception('Login error: $e');
@@ -58,32 +79,42 @@ class ApiService {
 
   // HTTP istekleri için header'ları hazırla
   Map<String, String> _getHeaders() {
-    return {
+    print('Kullanılan token: \'$_token\'');
+    final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      if (_token != null) 'Authorization': 'Bearer $_token',
+      if (_token != null && _token!.isNotEmpty) 'Authorization': 'Bearer $_token',
     };
+    print('Kullanılan headerlar: $headers');
+    return headers;
   }
 
   // Kullanıcı kaydı
-  Future<Map<String, dynamic>> register(String email, String password, String username) async {
+  Future<Map<String, dynamic>> register(String email, String password) async {
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/auth/register'),
+        Uri.parse('$_baseUrl/authentication/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
           'password': password,
-          'username': username,
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         await saveToken(data['token']);
+        await _prefs.setString('username', email);
+        // userId kaydet
+        if (data['userId'] != null) {
+          await _prefs.setString('userId', data['userId'].toString());
+        } else {
+          // Eğer backend dönmüyorsa, mevcut userId fonksiyonunu kullan
+          await getUserId();
+        }
         return data;
       } else {
-        throw Exception('Registration failed: ${response.body}');
+        throw Exception('Registration failed: \n${response.body}');
       }
     } catch (e) {
       throw Exception('Registration error: $e');
@@ -162,6 +193,18 @@ class ApiService {
     }
   }
 
+  // Kullanıcıya özel userId'yi sakla/oku
+  Future<String> getUserId() async {
+    String? userId = _prefs.getString('userId');
+    if (userId == null) {
+      // Sadece '1' olarak ata (veya backend'deki gerçek userId)
+      userId = '1';
+      await _prefs.setString('userId', userId);
+    }
+    print('KULLANILAN USER ID: $userId');
+    return userId;
+  }
+
   // Diyet planı oluştur
   Future<String> createDietPlan({
     required String message,
@@ -174,11 +217,12 @@ class ApiService {
     required String dietType,
   }) async {
     try {
+      final userId = await getUserId();
       final response = await http.post(
-        Uri.parse('$_difyUrl/chat/completions'),
+        Uri.parse('$_difyUrl/chat-messages'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': _difyApiKey,
+          'Authorization': 'Bearer $_difyApiKey',
         },
         body: jsonEncode({
           'inputs': {
@@ -192,7 +236,7 @@ class ApiService {
           },
           'query': message,
           'response_mode': 'blocking',
-          'user': 'user',
+          'user': userId,
         }),
       ).timeout(const Duration(seconds: 30));
 
@@ -209,22 +253,26 @@ class ApiService {
 
   // Chatbot mesajı gönderme
   Future<String> sendChatbotMessage(String message) async {
-    final response = await http.post(
-      Uri.parse('http://127.0.0.1:5001/api/chatbot/ask'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'message': message}),
-    );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['answer'] ?? 'Yanıt alınamadı';
-    } else {
-      // Hata mesajını göster
-      try {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/chatbot/ask'),
+        headers: _getHeaders(),
+        body: jsonEncode({'message': message}),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['error'] ?? 'Chatbot hatası: \\${response.body}';
-      } catch (e) {
-        return 'Chatbot hatası: \\${response.body}';
+        return data['answer'] ?? 'Yanıt alınamadı';
+      } else {
+        try {
+          final data = jsonDecode(response.body);
+          throw Exception(data['error'] ?? 'Chatbot hatası: ${response.body}');
+        } catch (e) {
+          throw Exception('Chatbot hatası: ${response.body}');
+        }
       }
+    } catch (e) {
+      throw Exception('Chatbot iletişim hatası: $e');
     }
   }
 
@@ -266,6 +314,220 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Error clearing chat history: $e');
+    }
+  }
+
+  // Dify ile conversation_id yönetimi
+  Future<String?> getConversationId() async {
+    return _prefs.getString('dify_conversation_id');
+  }
+
+  Future<void> setConversationId(String conversationId) async {
+    await _prefs.setString('dify_conversation_id', conversationId);
+  }
+
+  Future<void> clearConversationId() async {
+    await _prefs.remove('dify_conversation_id');
+  }
+
+  // Parçalı Dify yanıtını mevcut planla birleştirip backend'e kaydeder
+  Future<void> updateDietPlanWithPartialResponse(int userId, Map<String, dynamic> partialResponse) async {
+    // 1. Mevcut planı backend'den çek
+    final currentPlanString = await getDietPlanFromServer(userId);
+    Map<String, dynamic> currentPlan;
+    if (currentPlanString != null && currentPlanString.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(currentPlanString);
+        if (decoded is Map && decoded.containsKey('plan')) {
+          currentPlan = jsonDecode(decoded['plan']);
+        } else {
+          currentPlan = decoded;
+        }
+      } catch (e) {
+        print('Mevcut plan parse hatası: $e');
+        currentPlan = {'profil': {}, 'diyet_listesi': {}};
+      }
+    } else {
+      // Hiç plan yoksa, yeni başlat
+      currentPlan = {'profil': {}, 'diyet_listesi': {}};
+    }
+
+    // 2. Parçalı yanıtı mevcut plana uygula
+    if (partialResponse.containsKey('diyet_listesi')) {
+      partialResponse['diyet_listesi'].forEach((key, value) {
+        currentPlan['diyet_listesi'][key] = value;
+      });
+    }
+    if (partialResponse.containsKey('profil')) {
+      currentPlan['profil'] = partialResponse['profil'];
+    }
+
+    print('Birleştirilmiş ve kaydedilecek plan: ${jsonEncode(currentPlan)}');
+
+    // 3. Güncellenmiş planı backend'e kaydet
+    await saveDietPlanToServer(userId, jsonEncode(currentPlan));
+  }
+
+  // Diyet planını backend'den sil
+  Future<void> deleteDietPlanFromServer(int userId) async {
+    final response = await http.delete(
+      Uri.parse('http://127.0.0.1:5001/api/dietplan/$userId'),
+      headers: _getHeaders(),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Diyet planı silinemedi: ${response.body}');
+    }
+  }
+
+  // Dify API'ye doğrudan mesaj gönderme (conversation_id ile)
+  Future<String> sendDirectDifyMessage(String message, {Map<String, dynamic>? inputs}) async {
+    final userId = await getUserId();
+
+    // Eğer mesaj silme komutuysa, doğrudan sil
+    final lowerMsg = message.toLowerCase();
+    if (lowerMsg.contains('planımı sil') || lowerMsg.contains('diyet planını sil') || lowerMsg.contains('planı sil')) {
+      await deleteDietPlanFromServer(int.parse(userId));
+      return 'Diyet planınız başarıyla silindi.';
+    }
+
+    final conversationId = await getConversationId();
+    final body = <String, dynamic>{
+      'query': message,
+      'response_mode': 'blocking',
+      'user': userId,
+      'inputs': inputs ?? {},
+      if (conversationId != null) 'conversation_id': conversationId,
+    };
+    print('DIFY API REQUEST BODY: ' + jsonEncode(body));
+    final response = await http.post(
+      Uri.parse('$_difyUrl/chat-messages'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_difyApiKey',
+      },
+      body: jsonEncode(body),
+    ).timeout(const Duration(seconds: 30));
+    print('DIFY API RESPONSE: ${response.statusCode} ${response.body}');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      // conversation_id'yi sakla
+      if (data['conversation_id'] != null) {
+        await setConversationId(data['conversation_id']);
+      }
+      // answer alanı bazen iç içe JSON olabilir, düzelt
+      String answer = data['answer'] ?? 'Yanıt alınamadı';
+      try {
+        final inner = jsonDecode(answer);
+        if (inner is Map && inner['answer'] != null) {
+          answer = inner['answer'];
+          // Diyet planını backend'e kaydet (tüm planı veya parçalı yanıtı birleştirerek)
+          if (inner['data'] != null) {
+            await updateDietPlanWithPartialResponse(int.parse(userId), inner['data']);
+          }
+        }
+      } catch (e) {
+        print('JSON parse error: $e');
+      }
+      return answer;
+    } else {
+      throw Exception('Dify API error: ${response.statusCode} - ${response.body}');
+    }
+  }
+
+  // Diyet planını backend'e kaydet
+  Future<void> saveDietPlanToServer(int userId, String plan) async {
+    print('Backend\'e kaydedilecek plan: $plan');
+    // Plan'ı JSON string'e çevir
+    final planJson = jsonEncode({
+      'userId': userId,
+      'plan': plan,
+      'createdAt': DateTime.now().toIso8601String(),
+    });
+    print('POST body: $planJson');
+    final response = await http.post(
+      Uri.parse('http://127.0.0.1:5001/api/dietplan'),
+      headers: _getHeaders(),
+      body: planJson,
+    );
+    print('Backend response: \x1B[32m${response.statusCode} ${response.body}\x1B[0m');
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Diyet planı kaydedilemedi: \n${response.body}');
+    }
+  }
+
+  // Diyet planını backend'den getir
+  Future<String?> getDietPlanFromServer(int userId) async {
+    final response = await http.get(
+      Uri.parse('http://127.0.0.1:5001/api/dietplan/$userId'),
+      headers: _getHeaders(),
+    );
+    print('Backend response status: ${response.statusCode}');
+    print('Backend response body: ${response.body}');
+    
+    if (response.statusCode == 200) {
+      try {
+        final data = jsonDecode(response.body);
+        return data['plan']?.toString();
+      } catch (e) {
+        print('JSON parse error: $e');
+        return null;
+      }
+    }
+    return null;
+  }
+
+  Future<String> updateProfile({
+    required String? userId,
+    required String currentPassword,
+    required String newEmail,
+    String? newPassword,
+  }) async {
+    print('Profil güncelleme başladı...');
+    print('Backend URL: $_baseUrl/authentication/update-profile');
+    print('Headers: ${_getHeaders()}');
+    print('userId: $userId');
+    print('newEmail: $newEmail');
+    print('newPassword: ${newPassword ?? "değiştirilmedi"}');
+    
+    final requestBody = {
+      'userId': int.tryParse(userId ?? '') ?? 0,
+      'currentPassword': currentPassword,
+      'newEmail': newEmail,
+      'newPassword': newPassword,
+    };
+    print('Request body: $requestBody');
+    
+    try {
+      print('API isteği gönderiliyor...');
+      final response = await http.post(
+        Uri.parse('$_baseUrl/authentication/update-profile'),
+        headers: _getHeaders(),
+        body: jsonEncode(requestBody),
+      ).timeout(const Duration(seconds: 10));
+      
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        print('Profil güncelleme başarılı!');
+        // Başarılı güncelleme durumunda SharedPreferences'da email'i güncelle
+        await _prefs.setString('username', newEmail);
+        return 'Profiliniz başarıyla güncellendi!';
+      } else {
+        print('Profil güncelleme başarısız! Status: ${response.statusCode}');
+        try {
+          final errorData = jsonDecode(response.body);
+          throw Exception(errorData['message'] ?? 'Profil güncellenemedi: ${response.body}');
+        } catch (e) {
+          throw Exception('Profil güncellenemedi: ${response.body}');
+        }
+      }
+    } catch (e) {
+      print('Profil güncelleme hatası: $e');
+      if (e is TimeoutException) {
+        throw Exception('Sunucu yanıt vermedi. Lütfen internet bağlantınızı kontrol edin.');
+      }
+      throw Exception('Profil güncellenirken bir hata oluştu: $e');
     }
   }
 }
