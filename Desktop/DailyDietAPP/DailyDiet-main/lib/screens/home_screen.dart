@@ -479,9 +479,12 @@ class _HomeScreenState extends State<HomeScreen> {
           });
           switch (index) {
             case 0:
-              // Already on home
+              // Ana sayfada kal
               break;
             case 1:
+              Navigator.pushNamed(context, '/diet-plan');
+              break;
+            case 2:
               Navigator.pushNamed(context, '/profile');
               break;
           }
@@ -490,6 +493,10 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Ana Sayfa',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.restaurant_menu),
+            label: 'Diyet Planı',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

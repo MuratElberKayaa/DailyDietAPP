@@ -322,29 +322,6 @@ class _DietPlanScreenState extends State<DietPlanScreen> with RouteAware {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
 
-    // Calculate total target calories from diet plan
-    int totalTargetCalories = 0;
-    if (dietPlan != null) {
-      for (var meal in dietPlan!.meals) {
-        for (var food in meal.foods) {
-          totalTargetCalories += food.calories;
-        }
-      }
-    }
-
-    // Calculate consumed calories based on checked checkboxes
-    int consumedCalories = 0;
-    checkedFoods.forEach((mealIndex, foodIndices) {
-      if (dietPlan != null && mealIndex < dietPlan!.meals.length) {
-        var meal = dietPlan!.meals[mealIndex];
-        for (var foodIndex in foodIndices) {
-          if (foodIndex < meal.foods.length) {
-            consumedCalories += meal.foods[foodIndex].calories;
-          }
-        }
-      }
-    });
-
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -366,18 +343,22 @@ class _DietPlanScreenState extends State<DietPlanScreen> with RouteAware {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => Navigator.pop(context),
-                      color: Colors.green.shade700,
-                    ),
-                    Text(
-                      'Diyet Planı',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade700,
-                      ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => Navigator.pop(context),
+                          color: Colors.green.shade700,
+                        ),
+                        Text(
+                          'Diyet Planı',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                          ),
+                        ),
+                      ],
                     ),
                     IconButton(
                       icon: const Icon(Icons.refresh),
@@ -390,30 +371,28 @@ class _DietPlanScreenState extends State<DietPlanScreen> with RouteAware {
               // Ana İçerik
               Expanded(
                 child: isLoading
-                    ? Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.green.shade700),
-                        ),
+                    ? const Center(
+                        child: CircularProgressIndicator(),
                       )
-                    : errorMessage != null
+                    : dietPlan == null
                         ? Center(
                             child: Padding(
-                              padding: const EdgeInsets.all(16.0),
+                              padding: const EdgeInsets.all(24.0),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    Icons.error_outline,
+                                    Icons.restaurant_menu,
                                     size: 64,
-                                    color: Colors.red.shade300,
+                                    color: Colors.grey[400],
                                   ),
                                   const SizedBox(height: 16),
                                   Text(
-                                    errorMessage!,
+                                    errorMessage ?? 'Henüz bir diyet planı oluşturmadınız.',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 16,
-                                      color: Colors.grey.shade700,
+                                      color: Colors.grey[600],
                                     ),
                                   ),
                                   const SizedBox(height: 24),
