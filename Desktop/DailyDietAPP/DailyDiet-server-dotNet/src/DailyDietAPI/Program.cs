@@ -81,7 +81,9 @@ namespace DailyDietAPI
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
-                    webBuilder.UseUrls("http://127.0.0.1:5001");
+                    // Railway.com için port ayarı
+                    var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+                    webBuilder.UseUrls($"http://0.0.0.0:{port}");
                 });
     }
 }
