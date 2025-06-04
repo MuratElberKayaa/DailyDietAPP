@@ -14,7 +14,7 @@ class ApiService {
   }
 
   final SharedPreferences _prefs;
-  final String _baseUrl = 'http://127.0.0.1:5001/api';
+  final String _baseUrl = 'http://172.28.240.1:5001/api';
   final String _difyUrl = 'https://api.dify.ai/v1';
   final String _difyApiKey = 'app-dNj8ge94nfEGHGivm2e2BZMP';
   String? _token;
@@ -26,26 +26,44 @@ class ApiService {
   // Login işlemi
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
+      print('Login attempt for email: $email');
+      print('Using base URL: $_baseUrl');
+      
+      final loginUrl = Uri.parse('$_baseUrl/Authentication/login');
+      print('Full login URL: $loginUrl');
+      
+      final headers = {'Content-Type': 'application/json'};
+      final body = jsonEncode({
+        'email': email,
+        'password': password,
+      });
+      
+      print('Request headers: $headers');
+      print('Request body: $body');
+      
       final response = await http.post(
-        Uri.parse('$_baseUrl/Authentication/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        loginUrl,
+        headers: headers,
+        body: body,
       ).timeout(const Duration(seconds: 10));
+
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print('Login successful, token received');
         await saveToken(data['token']);
         await _prefs.setString('username', email);
-        // userId kaydet
+        
         if (data['userId'] != null) {
+          print('User ID from response: ${data['userId']}');
           await _prefs.setString('userId', data['userId'].toString());
         } else {
-          // Eğer backend dönmüyorsa, mevcut userId fonksiyonunu kullan
+          print('No userId in response, getting from getUserId()');
           await getUserId();
         }
+        
         // GİRİŞ BAŞARILI: Eski diyet planı verilerini temizle
         await _prefs.remove('dietPlan');
         await _prefs.remove('dietPlanData_' + email);
@@ -53,9 +71,17 @@ class ApiService {
         await _prefs.remove('lastUpdateDate');
         return data;
       } else {
-        throw Exception('Login failed: \\n${response.body}');
+        print('Login failed with status code: ${response.statusCode}');
+        print('Error response: ${response.body}');
+        throw Exception('Login failed: Status ${response.statusCode}\n${response.body}');
       }
     } catch (e) {
+      print('Login error occurred: $e');
+      if (e is TimeoutException) {
+        throw Exception('Login timeout: Sunucu yanıt vermedi. Lütfen internet bağlantınızı kontrol edin.');
+      } else if (e is SocketException) {
+        throw Exception('Bağlantı hatası: Sunucuya ulaşılamıyor. Lütfen internet bağlantınızı ve sunucu adresini kontrol edin.');
+      }
       throw Exception('Login error: $e');
     }
   }
@@ -371,7 +397,7 @@ class ApiService {
   // Diyet planını backend'den sil
   Future<void> deleteDietPlanFromServer(int userId) async {
     final response = await http.delete(
-      Uri.parse('http://127.0.0.1:5001/api/dietplan/$userId'),
+      Uri.parse('http://172.28.240.1:5001/api/dietplan/$userId'),
       headers: _getHeaders(),
     );
     if (response.statusCode != 200) {
@@ -445,7 +471,7 @@ class ApiService {
     });
     print('POST body: $planJson');
     final response = await http.post(
-      Uri.parse('http://127.0.0.1:5001/api/dietplan'),
+      Uri.parse('http://172.28.240.1:5001/api/dietplan'),
       headers: _getHeaders(),
       body: planJson,
     );
@@ -458,7 +484,7 @@ class ApiService {
   // Diyet planını backend'den getir
   Future<String?> getDietPlanFromServer(int userId) async {
     final response = await http.get(
-      Uri.parse('http://127.0.0.1:5001/api/dietplan/$userId'),
+      Uri.parse('http://172.28.240.1:5001/api/dietplan/$userId'),
       headers: _getHeaders(),
     );
     print('Backend response status: ${response.statusCode}');
