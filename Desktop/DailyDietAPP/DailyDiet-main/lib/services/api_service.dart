@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:io';
 
 class ApiService {
   static ApiService? _instance;
@@ -407,56 +408,81 @@ class ApiService {
 
   // Dify API'ye doğrudan mesaj gönderme (conversation_id ile)
   Future<String> sendDirectDifyMessage(String message, {Map<String, dynamic>? inputs}) async {
-    final userId = await getUserId();
+    try {
+      final userId = await getUserId();
+      print('DIFY API - User ID: $userId');
+      print('DIFY API - Message: $message');
+      print('DIFY API - Inputs: $inputs');
 
-    // Eğer mesaj silme komutuysa, doğrudan sil
-    final lowerMsg = message.toLowerCase();
-    if (lowerMsg.contains('planımı sil') || lowerMsg.contains('diyet planını sil') || lowerMsg.contains('planı sil')) {
-      await deleteDietPlanFromServer(int.parse(userId));
-      return 'Diyet planınız başarıyla silindi.';
-    }
-
-    final conversationId = await getConversationId();
-    final body = <String, dynamic>{
-      'query': message,
-      'response_mode': 'blocking',
-      'user': userId,
-      'inputs': inputs ?? {},
-      if (conversationId != null) 'conversation_id': conversationId,
-    };
-    print('DIFY API REQUEST BODY: ' + jsonEncode(body));
-    final response = await http.post(
-      Uri.parse('$_difyUrl/chat-messages'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_difyApiKey',
-      },
-      body: jsonEncode(body),
-    ).timeout(const Duration(seconds: 30));
-    print('DIFY API RESPONSE: ${response.statusCode} ${response.body}');
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      // conversation_id'yi sakla
-      if (data['conversation_id'] != null) {
-        await setConversationId(data['conversation_id']);
+      // Eğer mesaj silme komutuysa, doğrudan sil
+      final lowerMsg = message.toLowerCase();
+      if (lowerMsg.contains('planımı sil') || lowerMsg.contains('diyet planını sil') || lowerMsg.contains('planı sil')) {
+        await deleteDietPlanFromServer(int.parse(userId));
+        return 'Diyet planınız başarıyla silindi.';
       }
-      // answer alanı bazen iç içe JSON olabilir, düzelt
-      String answer = data['answer'] ?? 'Yanıt alınamadı';
-      try {
-        final inner = jsonDecode(answer);
-        if (inner is Map && inner['answer'] != null) {
-          answer = inner['answer'];
-          // Diyet planını backend'e kaydet (tüm planı veya parçalı yanıtı birleştirerek)
-          if (inner['data'] != null) {
-            await updateDietPlanWithPartialResponse(int.parse(userId), inner['data']);
-          }
+
+      final conversationId = await getConversationId();
+      print('DIFY API - Conversation ID: $conversationId');
+
+      final body = <String, dynamic>{
+        'query': message,
+        'response_mode': 'blocking',
+        'user': userId,
+        'inputs': inputs ?? {},
+        if (conversationId != null) 'conversation_id': conversationId,
+      };
+
+      print('DIFY API REQUEST BODY: ' + jsonEncode(body));
+      
+      final response = await http.post(
+        Uri.parse('$_difyUrl/chat-messages'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_difyApiKey',
+        },
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 30));
+
+      print('DIFY API RESPONSE STATUS: ${response.statusCode}');
+      print('DIFY API RESPONSE BODY: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        
+        // conversation_id'yi sakla
+        if (data['conversation_id'] != null) {
+          await setConversationId(data['conversation_id']);
         }
-      } catch (e) {
-        print('JSON parse error: $e');
+
+        // answer alanı bazen iç içe JSON olabilir, düzelt
+        String answer = data['answer'] ?? 'Yanıt alınamadı';
+        print('DIFY API - Raw Answer: $answer');
+
+        // Kod bloğu işaretlerini temizle
+        answer = answer.replaceAll('```json', '').replaceAll('```', '').trim();
+        
+        try {
+          final inner = jsonDecode(answer);
+          if (inner is Map && inner['answer'] != null) {
+            answer = inner['answer'];
+            // Diyet planını backend'e kaydet (tüm planı veya parçalı yanıtı birleştirerek)
+            if (inner['data'] != null) {
+              await updateDietPlanWithPartialResponse(int.parse(userId), inner['data']);
+            }
+          }
+        } catch (e) {
+          print('DIFY API - JSON parse error: $e');
+          // JSON parse hatası durumunda orijinal yanıtı kullan
+        }
+
+        return answer;
+      } else {
+        print('DIFY API ERROR: ${response.statusCode} - ${response.body}');
+        throw Exception('Dify API error: ${response.statusCode} - ${response.body}');
       }
-      return answer;
-    } else {
-      throw Exception('Dify API error: ${response.statusCode} - ${response.body}');
+    } catch (e) {
+      print('DIFY API EXCEPTION: $e');
+      throw Exception('Dify API iletişim hatası: $e');
     }
   }
 
@@ -554,6 +580,28 @@ class ApiService {
         throw Exception('Sunucu yanıt vermedi. Lütfen internet bağlantınızı kontrol edin.');
       }
       throw Exception('Profil güncellenirken bir hata oluştu: $e');
+    }
+  }
+
+  // Kullanıcı profilini getir
+  Future<Map<String, dynamic>?> getUserProfile(int userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/users/$userId/profile'),
+        headers: _getHeaders(),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 404) {
+        print('Kullanıcı profili bulunamadı');
+        return null;
+      } else {
+        throw Exception('Failed to load user profile: ${response.body}');
+      }
+    } catch (e) {
+      print('Error loading user profile: $e');
+      return null;
     }
   }
 }

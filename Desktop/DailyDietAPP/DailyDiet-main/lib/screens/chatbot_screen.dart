@@ -33,21 +33,52 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   Future<Map<String, dynamic>?> _getProfileData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final username = await _getUsername();
-    if (username == null) return null;
-    final data = prefs.getString('profileData_' + username);
-    if (data != null) {
-      return jsonDecode(data);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final username = await _getUsername();
+      if (username == null) {
+        print('Kullanıcı adı bulunamadı');
+        return null;
+      }
+      
+      // Önce SharedPreferences'dan kontrol et
+      final data = prefs.getString('profileData_' + username);
+      if (data != null) {
+        return jsonDecode(data);
+      }
+
+      // Eğer SharedPreferences'da yoksa, API'den al
+      final userId = prefs.getString('userId');
+      if (userId == null) {
+        print('Kullanıcı ID bulunamadı');
+        return null;
+      }
+
+      final apiService = await ApiService.getInstance();
+      final profileResponse = await apiService.getUserProfile(int.parse(userId));
+      if (profileResponse != null) {
+        // Profil verilerini SharedPreferences'a kaydet
+        await _saveProfileData(profileResponse);
+        return profileResponse;
+      }
+      
+      return null;
+    } catch (e) {
+      print('Profil verisi alınırken hata oluştu: $e');
+      return null;
     }
-    return null;
   }
 
   Future<void> _saveProfileData(Map<String, dynamic> profile) async {
-    final prefs = await SharedPreferences.getInstance();
-    final username = await _getUsername();
-    if (username != null) {
-      await prefs.setString('profileData_' + username, jsonEncode(profile));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final username = await _getUsername();
+      if (username != null) {
+        await prefs.setString('profileData_' + username, jsonEncode(profile));
+        print('Profil verisi kaydedildi: $profile');
+      }
+    } catch (e) {
+      print('Profil verisi kaydedilirken hata oluştu: $e');
     }
   }
 
@@ -87,16 +118,25 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       Map<String, dynamic>? inputs;
       if (profileData != null) {
         inputs = {
-          'isim': profileData['isim'],
-          'yas': profileData['yas'],
-          'boy': profileData['boy'],
-          'kilo': profileData['kilo'],
-          'hedef': profileData['hedef'],
-          'diyet_tipi': profileData['diyet_tipi'],
+          'isim': profileData['isim'] ?? '',
+          'yas': profileData['yas'] ?? 0,
+          'boy': profileData['boy'] ?? 0,
+          'kilo': profileData['kilo'] ?? 0,
+          'hedef': profileData['hedef'] ?? '',
+          'diyet_tipi': profileData['diyet_tipi'] ?? '',
+          'allowed_calories': profileData['allowedCalories'] ?? 2000,
+        };
+      } else {
+        print('Profil verisi bulunamadı, varsayılan değerler kullanılacak');
+        inputs = {
+          'allowed_calories': 2000,
         };
       }
+
+      print('DIFY API\'ye gönderilecek inputs: $inputs');
       final response = await _apiService.sendDirectDifyMessage(message, inputs: inputs);
       print('DIFY RAW RESPONSE: ' + response.toString());
+
       String cleaned = response.replaceAll('```json', '').replaceAll('```', '').trim();
       Map<String, dynamic>? json;
       try {
@@ -106,9 +146,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             json = Map<String, dynamic>.from(decoded);
           }
         }
-      } catch (_) {
+      } catch (e) {
+        print('JSON parse hatası: $e');
         json = null;
       }
+
       if (json == null) {
         setState(() {
           _messages.add('Bot: $cleaned');
@@ -116,6 +158,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         });
         return;
       }
+
       // Buradan sonra json kesinlikle null değildir!
       final safeJson = json!;
       if (safeJson['answer'] is String && (safeJson['answer'] as String).trim().startsWith('{')) {
@@ -124,10 +167,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           if (innerDecoded is Map) {
             json = Map<String, dynamic>.from(innerDecoded);
           }
-        } catch (_) {
+        } catch (e) {
+          print('İç JSON parse hatası: $e');
           // inner parse edilemiyorsa, json olduğu gibi kalır
         }
       }
+
       final username = await _getUsername();
       if (username == null) {
         setState(() {
@@ -136,13 +181,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         });
         return;
       }
+
       if (json!['data'] is Map && json!['data']['profil'] != null) {
         await _saveProfileData(json!['data']['profil']);
       }
+
       dynamic planToSave;
       if (json!['data'] is Map && json!['data']['diyet_listesi'] != null) {
         planToSave = json!['data']['diyet_listesi'];
       }
+
       if (planToSave != null && planToSave is Map && planToSave.isNotEmpty) {
         final planMap = Map<String, dynamic>.from(planToSave);
         final prefs = await SharedPreferences.getInstance();
@@ -152,6 +200,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         await prefs.setString('dietPlanData_' + username, dietPlan.toJsonString());
         final today = DateTime.now().toIso8601String().split('T')[0];
         await prefs.setString('dietPlanLastUpdate_' + username, today);
+
         // --- BACKEND'E KAYDET ---
         final userIdString = prefs.getString('userId');
         final userId = int.tryParse(userIdString ?? '') ?? 0;
@@ -160,7 +209,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             await _apiService.saveDietPlanToServer(userId, dietPlan.toJsonString());
             print('Plan backend\'e başarıyla kaydedildi!');
           } catch (e) {
-            print('Plan backend\'e kaydedilemedi: ' + e.toString());
+            print('Plan backend\'e kaydedilemedi: $e');
           }
         }
         // ------------------------
@@ -184,11 +233,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         return;
       }
     } catch (e) {
+      print('Chatbot hatası: $e');
       setState(() {
         _messages.add('Bot: Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.');
         _isLoading = false;
       });
-      print('Hata: $e');
     }
   }
 
@@ -198,43 +247,96 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       appBar: AppBar(
         title: const Text('Chatbot'),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(_messages[index]),
-                );
-              },
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView.builder(
+                reverse: true, // En son mesajlar altta görünecek
+                padding: const EdgeInsets.all(8.0),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final message = _messages[_messages.length - 1 - index];
+                  final isUser = message.startsWith('Siz:');
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                      children: [
+                        Container(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.75,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                          decoration: BoxDecoration(
+                            color: isUser ? Colors.blue[100] : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(20.0),
+                          ),
+                          child: Text(
+                            message,
+                            style: TextStyle(
+                              color: isUser ? Colors.black87 : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Mesajınızı yazın...',
-                      border: OutlineInputBorder(),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, -1),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      decoration: InputDecoration(
+                        hintText: 'Mesajınızı yazın...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25.0),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _isLoading ? null : _sendMessage,
-                  icon: _isLoading
-                      ? const CircularProgressIndicator()
-                      : const Icon(Icons.send),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(25.0),
+                    ),
+                    child: IconButton(
+                      onPressed: _isLoading ? null : _sendMessage,
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.send, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -175,7 +175,8 @@ namespace DailyDietAPI.Features
                 var user = new User
                 {
                     Email = request.Email,
-                    UserName = request.Email
+                    UserName = request.Email,
+                    Profile = new UserProfile { AllowedCalories = 2000 } // Varsayılan değer
                 };
 
                 var result = await _userManager.CreateAsync(user, request.Password);
