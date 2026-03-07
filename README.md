@@ -414,7 +414,7 @@ Bu proje örnek bir proje olarak geliştirilmiştir. Lisans bilgisi için lütfe
 
 ## 👥 Yazar
 
-- **Geliştirici** - [GitHub Profili]([https://github.com/kullaniciadi](https://github.com/MuratElberKayaa?tab=repositories))
+- **Geliştirici** - [GitHub Profili](https://github.com/MuratElberKayaa?tab=repositories)
 
 ## 🙏 Teşekkürler
 
