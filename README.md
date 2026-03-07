@@ -414,7 +414,7 @@ Bu proje örnek bir proje olarak geliştirilmiştir. Lisans bilgisi için lütfe
 
 ## 👥 Yazar
 
-- **Geliştirici** - [GitHub Profili](https://github.com/kullaniciadi)
+- **Geliştirici** - [GitHub Profili]([https://github.com/kullaniciadi](https://github.com/MuratElberKayaa?tab=repositories))
 
 ## 🙏 Teşekkürler
 
@@ -424,7 +424,9 @@ Bu proje örnek bir proje olarak geliştirilmiştir. Lisans bilgisi için lütfe
 
 ## 📞 İletişim
 
-Sorularınız veya önerileriniz için issue açabilirsiniz.
+[Linkedin Profili]((https://www.linkedin.com/in/murat-elber-kaya-18b6311b3/))
+
+[Portfolyo](http://muratelberkaya.com.tr/)
 
 ---
 
