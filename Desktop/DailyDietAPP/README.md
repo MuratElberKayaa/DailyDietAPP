@@ -357,16 +357,16 @@ http://localhost:5001/swagger
 ### Uygulama Ekranları
 
 <p align="center">
-  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/Login.png" alt="Giriş Ekranı">
-  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/MainPage.png" alt="Ana Sayfa">
+  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/Login.png" alt="Giriş Ekranı">
+  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/MainPage.png" alt="Ana Sayfa">
 </p>
 <p align="center">
   <em>Giriş Ekranı · Ana Sayfa (Günlük İstatistikler, Su Takibi, Motivasyon)</em>
 </p>
 
 <p align="center">
-  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/DietPlanList.png" alt="Diyet Planı Ekranı">
-  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/Profile.png" alt="Profil Ekranı">
+  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/DietPlanList.png" alt="Diyet Planı Ekranı">
+  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/Profile.png" alt="Profil Ekranı">
 </p>
 <p align="center">
   <em>Diyet Planı (Öğünler ve Besin Kartları) · Profil (Bilgi Güncelleme)</em>
@@ -375,24 +375,24 @@ http://localhost:5001/swagger
 ### Backend ve Araçlar
 
 <p align="center">
-  <img width="640" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/Swagger-UI.png" alt="DailyDiet API - Swagger UI">
+  <img width="640" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/Swagger-UI.png" alt="DailyDiet API - Swagger UI">
 </p>
 <p align="center">
   <em>DailyDiet API – Swagger UI (Authentication, Chatbot, DietPlan, Meals, Users)</em>
 </p>
 
 <p align="center">
-  <img width="640" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/PostgreSQL.png" alt="PostgreSQL - pgAdmin 4">
+  <img width="640" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/PostgreSQL.png" alt="PostgreSQL - pgAdmin 4">
 </p>
 <p align="center">
   <em>Veritabanı – pgAdmin 4 (DiyetAppDb, Tablolar ve Dashboard)</em>
 </p>
 
 <p align="center">
-  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/Register.png" alt="Kayıt Ekranı">
-  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/Meals-List.png" alt="Yemek Listesi">
-  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/Meals-Update.png" alt="Yemek Güncelleme">
-  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/wiki/Postman.png" alt="Postman Collection">
+  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/Register.png" alt="Kayıt Ekranı">
+  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/Meals-List.png" alt="Yemek Listesi">
+  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/Meals-Update.png" alt="Yemek Güncelleme">
+  <img width="320" src="https://raw.githubusercontent.com/MuratElberKayaa/DailyDietAPP/main/Desktop/DailyDietAPP/wiki/Postman.png" alt="Postman Collection">
 </p>
 <p align="center">
   <em>Kayıt Ekranı · Yemek Listesi · Yemek Güncelleme · Postman Koleksiyonu</em>
