@@ -424,7 +424,7 @@ Bu proje örnek bir proje olarak geliştirilmiştir. Lisans bilgisi için lütfe
 
 ## 📞 İletişim
 
-[Linkedin Profili]((https://www.linkedin.com/in/murat-elber-kaya-18b6311b3/))
+[Linkedin Profili](https://www.linkedin.com/in/murat-elber-kaya-18b6311b3/)
 
 [Portfolyo](http://muratelberkaya.com.tr/)
 
