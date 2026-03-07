@@ -81,7 +81,9 @@ namespace DailyDietAPI
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
-                    webBuilder.UseUrls("http://*:5001");
+                    // Railway / production için PORT env; yoksa 5001
+                    var port = Environment.GetEnvironmentVariable("PORT") ?? "5001";
+                    webBuilder.UseUrls($"http://0.0.0.0:{port}");
                 });
     }
 }
