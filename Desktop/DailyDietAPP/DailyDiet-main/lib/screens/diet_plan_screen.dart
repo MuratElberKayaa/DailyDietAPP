@@ -86,14 +86,25 @@ class _DietPlanScreenState extends State<DietPlanScreen> with RouteAware {
   Future<void> _loadDietPlan() async {
     setState(() {
       isLoading = true;
+      errorMessage = null;
     });
     try {
       final prefs = await SharedPreferences.getInstance();
       final userIdString = prefs.getString('userId');
       final userId = int.tryParse(userIdString ?? '') ?? 0;
+      
+      if (userId == 0) {
+        setState(() {
+          isLoading = false;
+          errorMessage = 'Kullanıcı bilgisi bulunamadı. Lütfen tekrar giriş yapın.';
+        });
+        return;
+      }
+
       print('Diyet planı yükleniyor...');
       final rawData = await _apiService.getDietPlanFromServer(userId);
       print('Backend\'den gelen ham veri: $rawData');
+      
       if (rawData != null && rawData.isNotEmpty) {
         try {
           final decoded = jsonDecode(rawData);
@@ -125,7 +136,7 @@ class _DietPlanScreenState extends State<DietPlanScreen> with RouteAware {
         setState(() {
           dietPlan = null;
           isLoading = false;
-          errorMessage = 'Hata: Henüz bir diyet planı oluşturmadınız. Chatbot ile bir plan oluşturun.';
+          errorMessage = 'Henüz bir diyet planı oluşturmadınız. Chatbot ile bir plan oluşturun.';
         });
       }
     } catch (e) {
@@ -133,7 +144,7 @@ class _DietPlanScreenState extends State<DietPlanScreen> with RouteAware {
       setState(() {
         dietPlan = null;
         isLoading = false;
-        errorMessage = 'Diyet planı yüklenirken hata oluştu.';
+        errorMessage = 'Diyet planı yüklenirken bir hata oluştu. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.';
       });
     }
   }

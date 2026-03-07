@@ -1,27 +1,51 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io' show Platform, SocketException;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
-import 'dart:io';
 
 class ApiService {
   static ApiService? _instance;
   static Future<ApiService> getInstance() async {
     if (_instance != null) return _instance!;
     final prefs = await SharedPreferences.getInstance();
-    _instance = ApiService(prefs);
+    _instance = ApiService._internal(prefs);
     return _instance!;
   }
 
   final SharedPreferences _prefs;
-  final String _baseUrl = 'http://172.28.240.1:5001/api';
+  late final String _baseUrl;
   final String _difyUrl = 'https://api.dify.ai/v1';
   final String _difyApiKey = 'app-dNj8ge94nfEGHGivm2e2BZMP';
   String? _token;
 
-  ApiService(this._prefs) {
+  ApiService._internal(this._prefs) {
     _token = _prefs.getString('token');
+    
+    // Platform kontrolü ve URL ayarlama
+    if (kIsWeb) {
+      _baseUrl = 'http://192.168.1.83:5001/api';
+      print('Web platform detected');
+    } else if (Platform.isAndroid) {
+      _baseUrl = 'http://192.168.1.83:5001/api';
+      print('Android platform detected');
+    } else if (Platform.isIOS) {
+      _baseUrl = 'http://192.168.1.83:5001/api';
+      print('iOS platform detected');
+    } else if (Platform.isWindows) {
+      _baseUrl = 'http://192.168.1.83:5001/api';
+      print('Windows platform detected');
+    } else {
+      _baseUrl = 'http://192.168.1.83:5001/api';
+      print('Other platform detected: ${Platform.operatingSystem}');
+    }
+    
+    print('Platform details:');
+    print('- OS: ${Platform.operatingSystem}');
+    print('- OS version: ${Platform.operatingSystemVersion}');
+    print('- Local hostname: ${Platform.localHostname}');
+    print('Using base URL: $_baseUrl');
   }
 
   // Login işlemi
@@ -81,6 +105,9 @@ class ApiService {
       if (e is TimeoutException) {
         throw Exception('Login timeout: Sunucu yanıt vermedi. Lütfen internet bağlantınızı kontrol edin.');
       } else if (e is SocketException) {
+        if (Platform.isAndroid) {
+          throw Exception('Android Emulator bağlantı hatası: Backend sunucusunun çalıştığından ve 10.0.2.2:5001 adresinden erişilebilir olduğundan emin olun.');
+        }
         throw Exception('Bağlantı hatası: Sunucuya ulaşılamıyor. Lütfen internet bağlantınızı ve sunucu adresini kontrol edin.');
       }
       throw Exception('Login error: $e');
@@ -106,14 +133,11 @@ class ApiService {
 
   // HTTP istekleri için header'ları hazırla
   Map<String, String> _getHeaders() {
-    print('Kullanılan token: \'$_token\'');
-    final headers = {
+    final token = _prefs.getString('token');
+    return {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (_token != null && _token!.isNotEmpty) 'Authorization': 'Bearer $_token',
+      if (token != null) 'Authorization': 'Bearer $token',
     };
-    print('Kullanılan headerlar: $headers');
-    return headers;
   }
 
   // Kullanıcı kaydı
@@ -398,7 +422,7 @@ class ApiService {
   // Diyet planını backend'den sil
   Future<void> deleteDietPlanFromServer(int userId) async {
     final response = await http.delete(
-      Uri.parse('http://172.28.240.1:5001/api/dietplan/$userId'),
+      Uri.parse('$_baseUrl/dietplan/$userId'),
       headers: _getHeaders(),
     );
     if (response.statusCode != 200) {
@@ -421,7 +445,35 @@ class ApiService {
         return 'Diyet planınız başarıyla silindi.';
       }
 
-      final conversationId = await getConversationId();
+      // Conversation ID'yi kontrol et ve gerekirse yeni oluştur
+      String? conversationId = await getConversationId();
+      if (conversationId == null) {
+        print('No existing conversation ID, starting new conversation');
+        // Yeni bir conversation başlat
+        final response = await http.post(
+          Uri.parse('$_difyUrl/chat-messages'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_difyApiKey',
+          },
+          body: jsonEncode({
+            'query': 'Merhaba',
+            'response_mode': 'blocking',
+            'user': userId,
+            'inputs': inputs ?? {},
+          }),
+        ).timeout(const Duration(seconds: 30));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          conversationId = data['conversation_id'];
+          if (conversationId != null) {
+            await setConversationId(conversationId);
+            print('New conversation started with ID: $conversationId');
+          }
+        }
+      }
+
       print('DIFY API - Conversation ID: $conversationId');
 
       final body = <String, dynamic>{
@@ -476,12 +528,23 @@ class ApiService {
         }
 
         return answer;
+      } else if (response.statusCode == 404) {
+        // Conversation bulunamadı hatası durumunda
+        print('Conversation not found, clearing conversation ID and retrying...');
+        await clearConversationId();
+        // Yeni bir mesaj gönder
+        return sendDirectDifyMessage(message, inputs: inputs);
       } else {
         print('DIFY API ERROR: ${response.statusCode} - ${response.body}');
         throw Exception('Dify API error: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('DIFY API EXCEPTION: $e');
+      if (e is SocketException) {
+        throw Exception('İnternet bağlantısı hatası. Lütfen bağlantınızı kontrol edin.');
+      } else if (e is TimeoutException) {
+        throw Exception('Sunucu yanıt vermedi. Lütfen tekrar deneyin.');
+      }
       throw Exception('Dify API iletişim hatası: $e');
     }
   }
@@ -497,7 +560,7 @@ class ApiService {
     });
     print('POST body: $planJson');
     final response = await http.post(
-      Uri.parse('http://172.28.240.1:5001/api/dietplan'),
+      Uri.parse('$_baseUrl/dietplan'),
       headers: _getHeaders(),
       body: planJson,
     );
@@ -510,7 +573,7 @@ class ApiService {
   // Diyet planını backend'den getir
   Future<String?> getDietPlanFromServer(int userId) async {
     final response = await http.get(
-      Uri.parse('http://172.28.240.1:5001/api/dietplan/$userId'),
+      Uri.parse('$_baseUrl/dietplan/$userId'),
       headers: _getHeaders(),
     );
     print('Backend response status: ${response.statusCode}');

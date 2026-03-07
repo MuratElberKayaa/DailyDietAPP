@@ -34,8 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _initApiService() async {
-    final prefs = await SharedPreferences.getInstance();
-    _apiService = ApiService(prefs);
+    _apiService = await ApiService.getInstance();
   }
 
   Future<void> _login() async {

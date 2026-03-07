@@ -81,7 +81,7 @@ namespace DailyDietAPI
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
-                    webBuilder.UseUrls("http://172.28.240.1:5001");
+                    webBuilder.UseUrls("http://*:5001");
                 });
     }
 }

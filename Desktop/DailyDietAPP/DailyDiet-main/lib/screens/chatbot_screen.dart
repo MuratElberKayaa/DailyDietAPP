@@ -234,8 +234,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       }
     } catch (e) {
       print('Chatbot hatası: $e');
+      String errorMessage = 'Üzgünüm, bir hata oluştu. ';
+      if (e.toString().contains('SocketException')) {
+        errorMessage += 'İnternet bağlantınızı kontrol edin.';
+      } else if (e.toString().contains('TimeoutException')) {
+        errorMessage += 'Sunucu yanıt vermedi, lütfen tekrar deneyin.';
+      } else {
+        errorMessage += 'Lütfen tekrar deneyin.';
+      }
       setState(() {
-        _messages.add('Bot: Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin.');
+        _messages.add('Bot: $errorMessage');
         _isLoading = false;
       });
     }
